@@ -1,44 +1,59 @@
 #!/bin/bash
 
 ###############################################################################
-#   Simple bash-script to merge scans,images,docs etc. into one PDF document  # 
+#             Simple bash-script to merge PDF's into one document             # 
 #                  [with optimized size for transfer via Web]                 #
 #                   using ::ghostscript:: and ::ImageMagick::                 #
 ###############################################################################
-# [v.1.0] TiReks33@gmail.com                                                  #
+# [v.1.1:upd{11/16/25}] TiReks33@gmail.com                                    #
 ###############################################################################
                                    #
 # Set-up custom settings-->        #
                                    #
-CLEAR_CONVERTED_FILES=true         # if [true], if some files needs to conver-
+readonly ENABLE_CUSTOM_NAME=true   # if this flag is [false] -- default name
+                                   # for output file will be used 
+                                   # (OUTPUT_FNAME) instead of user input
+                                   #
+readonly SWITCH_QUALITY=true       # if this flag is [false] -- default 
+                                   # quality/filesize pre-set (Q_MED) will 
+                                   # be used for converting instead of user 
+                                   # choose in dialog 
+                                   #
+readonly CLEAR_CONVERTED=true      # if [true], if some files needs to conver-
                                    # -ting first, and if this converting 
                                    # successful, only files with original 
                                    # format will be remain; 
                                    #
-                                   # [false] -- converted PDFs will be saved
-                                   # in same folder as originals. 
+                                   # [false] -- converted (temporary) files 
+                                   # will be remain in same folder as 
+                                   # originals (sources). 
                                    #
-QUALITY="/ebook"                   # dPDFSETTINGS	Description::
-                                   # [/prepress] -- Better quality, 300dpi, 
-                                   # higher weight;
-                                   # [/ebook] -- Medium quality, 300dpi, 
-                                   # moderate weight;
-                                   # [/screen] -- Lower quality, 72dpi, 
+                                   #
+                                   # dPDFSETTINGS	Description::
+readonly Q_HIGH="/prepress"        # [/prepress] -- Highest quality, 300dpi, 
+                                   # larger weight;
+readonly Q_MED="/ebook"            # [/ebook] -- Medium quality, 150dpi, 
+                                   # moderate weight (balanced/optimal);
+readonly Q_LOW="/screen"           # [/screen] -- Lower quality, 72dpi, 
                                    # the lightest 
                                    #
-OUTPUT_DIR="$HOME/__OUTPUT_PDFS__" # Result files directory path (will be
+QUALITY=$Q_MED                     # default pre-set
+                                   #
+                                   #
+readonly OUTPUT_DIR="$HOME/__OUT"` #
+`"PUT_PDFS__"                      # Result files directory path (will be
                                    # created if not exist already)
                                    #
 OUTPUT_FNAME="ResultDocument"      # default result document name
                                    #
-abortingcommand="_abort"           # this command uses for permanent exit app
+readonly abortingcommand="_abort"  # this command uses for permanent exit app
                                    # (when 'set output file name' stage)
                                    #
-FA="[FAILED]"                      # log string "macros"
-SU="[SUCCESS]"                     #
-WA="[WARNING]"                     #
+readonly FA="[FAILED]"             # stdout output "macros"
+readonly SU="[SUCCESS]"            #
+readonly WA="[WARNING]"            #
                                    #
-##############################################################################
+###############################################################################
 
 # Begin execution-->
 
@@ -61,23 +76,92 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# temp variable for custom user output file name
-customuserfname=$OUTPUT_FNAME
+###################
 
-# enter output file name
-read -p "Enter output file name,"$'\n'"or tipe \"${abortingcommand}\" to exit script[\"${OUTPUT_FNAME}\"]:"$'\n' customuserfname
+##################
 
-# permanent exit
-if [ "$customuserfname" == "${abortingcommand}" ]; then
-    echo "aborting.."
-    exit 0
+# if flag is set to true
+if $ENABLE_CUSTOM_NAME; then
+
+    # temp variable for custom user output file name
+    customuserfname=$OUTPUT_FNAME
+
+    # enter output file name
+    read -p "Enter output file name,"$'\n'`
+    `"leave empty for default filename [default: \"${OUTPUT_FNAME}\"],"$'\n'`
+    `"or type \"${abortingcommand}\" to exit script:"$'\n' customuserfname
+
+    # permanent exit
+    if [ "$customuserfname" == "${abortingcommand}" ]; then
+        echo "aborting.."
+        exit 0
+    fi
+
+    # if name not empty -> set user custom name for output file
+    if [ -n "$customuserfname" ]; then
+        OUTPUT_FNAME=$customuserfname
+        echo ""
+    fi
+
 fi
 
-# if name not empty -> set user custom name for output file
-if [ -n "$customuserfname" ]; then
-    OUTPUT_FNAME=$customuserfname
-    echo ""
+echo "Next name will be used for output file: \"$OUTPUT_FNAME\"."$'\n' 
+
+###############
+
+# if flag is set to true
+if $SWITCH_QUALITY; then
+   
+    temp_quality=-1 #$QUALITY
+    
+    # regexp check number
+    re='^[0-2]+$'
+
+    while : #[[ ! ( $temp_quality =~ $re ) ]]
+    do
+        # choose quality-filesize pre-set for converting in dialog
+        read -p "Enter desired quality/filesize pre-set number[0-2]:"$'\n'`
+        `"[0] -- \"$Q_LOW\"::Lower quality, 72dpi, the lightest;"$'\n'`
+        `"[1] -- \"$Q_MED\"::Medium quality, 150dpi, moderate weight (balanced/optimal);"$'\n'`
+        `"[2] -- \"$Q_HIGH\"::Highest quality, 300dpi, larger weight;"$'\n'`
+        `"leave empty for default pre-set [default: \"$QUALITY\"];"$'\n'`
+        `"or type \"${abortingcommand}\" to exit script:"$'\n' temp_quality
+
+        # permanent exit
+        if [ "$temp_quality" == "${abortingcommand}" ]; then
+            echo "aborting.."
+            exit 0
+        fi
+
+        # if not empty value
+        if [ -n "$temp_quality" ]; then
+            # check if value is digit and it is correct :
+            if [[ $temp_quality =~ $re ]]
+            then
+                #
+                if [ $temp_quality -eq 0 ]; then
+                    QUALITY=$Q_LOW
+                elif [ $temp_quality -eq 1 ]; then
+                    QUALITY=$Q_MED
+                else
+                    QUALITY=$Q_HIGH
+                fi
+                #
+                break
+            else
+                echo "regexp doesn't match!"
+            fi
+        else
+            break
+        fi
+        
+        echo ""
+
+    done
+
 fi
+
+##################
 
 # array for cleaning converted files with non-Pdf extension
 CONVERTEDARRAY=()
@@ -156,7 +240,7 @@ do
             echo "$SU converting [${clearfname}] to PDF successful!"
             
             # if flag set -> add converted file in query to cleaning
-            if $CLEAR_CONVERTED_FILES ; then
+            if $CLEAR_CONVERTED ; then
                 CONVERTEDARRAY+=("${tempfname}.pdf")
             fi
         fi
@@ -212,7 +296,7 @@ rm "${ResFile}.pdf"
 mv "${ResFile}shr.pdf" "${ResFile}.pdf"
 
 # if flag set -> clean converted files
-if $CLEAR_CONVERTED_FILES ; then
+if $CLEAR_CONVERTED ; then
     if (( ${#CONVERTEDARRAY[@]} )); then
         rm "${CONVERTEDARRAY[@]}"
     fi
